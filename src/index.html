@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend API Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .auth-token {
+            word-break: break-all;
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Backend API Tester</h1>
+    
+    <div class="auth-token">
+        <h3>Authentication Token:</h3>
+        <div id="tokenDisplay">Not logged in</div>
+    </div>
+
+    <div class="container">
+        <!-- Authentication Section -->
+        <div class="section">
+            <h2>Authentication</h2>
+            
+            <h3>Register</h3>
+            <input type="text" id="regUsername" placeholder="Username" value="testuser">
+            <input type="password" id="regPassword" placeholder="Password" value="testpass">
+            <input type="email" id="regEmail" placeholder="Email" value="test@example.com">
+            <button onclick="register()">Register</button>
+            <pre id="registerResult"></pre>
+            
+            <h3>Login</h3>
+            <input type="text" id="loginUsername" placeholder="Username" value="alice">
+            <input type="password" id="loginPassword" placeholder="Password" value="alice_pw">
+            <button onclick="login()">Login</button>
+            <pre id="loginResult"></pre>
+            
+            <h3>Get Current User</h3>
+            <button onclick="getCurrentUser()">Get My Info</button>
+            <pre id="currentUserResult"></pre>
+        </div>
+
+        <!-- Items Section -->
+        <div class="section">
+            <h2>Items</h2>
+            
+            <h3>Create Item</h3>
+            <input type="text" id="itemName" placeholder="Name" value="Sample Item">
+            <textarea id="itemDescription" placeholder="Description">This is a sample item description</textarea>
+            <button onclick="createItem()">Create Item</button>
+            <pre id="createItemResult"></pre>
+            
+            <h3>Get All Items</h3>
+            <button onclick="getAllItems()">Get Items</button>
+            <pre id="allItemsResult"></pre>
+            
+            <h3>Get Item by ID</h3>
+            <input type="text" id="itemId" placeholder="Item ID">
+            <button onclick="getItemById()">Get Item</button>
+            <pre id="itemByIdResult"></pre>
+        </div>
+
+        <!-- Reviews Section -->
+        <div class="section">
+            <h2>Reviews</h2>
+            
+            <h3>Create Review</h3>
+            <input type="text" id="reviewItemId" placeholder="Item ID">
+            <textarea id="reviewText" placeholder="Review Text">This is a great product!</textarea>
+            <input type="number" id="reviewRating" placeholder="Rating (1-5)" value="5">
+            <button onclick="createReview()">Create Review</button>
+            <pre id="createReviewResult"></pre>
+            
+            <h3>Get Reviews by Item</h3>
+            <input type="text" id="reviewsByItemId" placeholder="Item ID">
+            <button onclick="getReviewsByItem()">Get Reviews</button>
+            <pre id="reviewsByItemResult"></pre>
+            
+            <h3>Get Reviews by User</h3>
+            <input type="text" id="reviewsByUserId" placeholder="User ID">
+            <button onclick="getReviewsByUser()">Get Reviews</button>
+            <pre id="reviewsByUserResult"></pre>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="section">
+            <h2>Comments</h2>
+            
+            <h3>Create Comment</h3>
+            <input type="text" id="commentReviewId" placeholder="Review ID">
+            <textarea id="commentText" placeholder="Comment Text">I agree with this review!</textarea>
+            <button onclick="createComment()">Create Comment</button>
+            <pre id="createCommentResult"></pre>
+            
+            <h3>Get Comments by User</h3>
+            <input type="text" id="commentsByUserId" placeholder="User ID">
+            <button onclick="getCommentsByUser()">Get Comments</button>
+            <pre id="commentsByUserResult"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+        let authToken = localStorage.getItem('authToken') || '';
+        
+        // Display current token
+        document.getElementById('tokenDisplay').textContent = authToken || 'Not logged in';
+        
+        // Helper function for API calls
+        async function makeRequest(method, endpoint, body = null, requiresAuth = true) {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (requiresAuth && authToken) {
+                headers['Authorization'] = authToken;
+            }
+            
+            const options = {
+                method,
+                headers
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Request failed');
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+        
+        // Authentication functions
+        async function register() {
+            try {
+                const username = document.getElementById('regUsername').value;
+                const password = document.getElementById('regPassword').value;
+                const email = document.getElementById('regEmail').value;
+                
+                const result = await makeRequest('POST', '/auth/register', {
+                    username,
+                    password,
+                    email
+                }, false);
+                
+                document.getElementById('registerResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('registerResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function login() {
+            try {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                const result = await makeRequest('POST', '/auth/login', {
+                    username,
+                    password
+                }, false);
+                
+                authToken = result.token;
+                localStorage.setItem('authToken', authToken);
+                document.getElementById('tokenDisplay').textContent = authToken;
+                
+                document.getElementById('loginResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('loginResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function getCurrentUser() {
+            try {
+                const result = await makeRequest('GET', '/auth/me');
+                document.getElementById('currentUserResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('currentUserResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        // Item functions
+        async function createItem() {
+            try {
+                const name = document.getElementById('itemName').value;
+                const description = document.getElementById('itemDescription').value;
+                
+                const result = await makeRequest('POST', '/items', {
+                    name,
+                    description
+                });
+                
+                document.getElementById('createItemResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+                
+                // Auto-fill the item ID field for convenience
+                if (result.id) {
+                    document.getElementById('itemId').value = result.id;
+                    document.getElementById('reviewItemId').value = result.id;
+                }
+            } catch (error) {
+                document.getElementById('createItemResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function getAllItems() {
+            try {
+                const result = await makeRequest('GET', '/items');
+                document.getElementById('allItemsResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+                
+                // Auto-fill the first item ID for convenience
+                if (result.length > 0) {
+                    document.getElementById('itemId').value = result[0].id;
+                    document.getElementById('reviewItemId').value = result[0].id;
+                    document.getElementById('reviewsByItemId').value = result[0].id;
+                }
+            } catch (error) {
+                document.getElementById('allItemsResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function getItemById() {
+            try {
+                const id = document.getElementById('itemId').value;
+                const result = await makeRequest('GET', `/items/${id}`);
+                document.getElementById('itemByIdResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('itemByIdResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        // Review functions
+        async function createReview() {
+            try {
+                const item_id = document.getElementById('reviewItemId').value;
+                const review_text = document.getElementById('reviewText').value;
+                const rating = document.getElementById('reviewRating').value;
+                
+                // Get current user ID to associate with review
+                const user = await makeRequest('GET', '/auth/me');
+                
+                const result = await makeRequest('POST', `/items/${item_id}/reviews`, {
+                    review_text,
+                    rating,
+                    user_id: user.id
+                });
+                
+                document.getElementById('createReviewResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+                
+                // Auto-fill review ID for comments
+                if (result.id) {
+                    document.getElementById('commentReviewId').value = result.id;
+                }
+            } catch (error) {
+                document.getElementById('createReviewResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function getReviewsByItem() {
+            try {
+                const item_id = document.getElementById('reviewsByItemId').value;
+                const result = await makeRequest('GET', `/items/${item_id}/reviews`);
+                document.getElementById('reviewsByItemResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+                
+                // Auto-fill the first review ID for comments
+                if (result.length > 0) {
+                    document.getElementById('commentReviewId').value = result[0].id;
+                }
+            } catch (error) {
+                document.getElementById('reviewsByItemResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function getReviewsByUser() {
+            try {
+                const user_id = document.getElementById('reviewsByUserId').value;
+                const result = await makeRequest('GET', `/users/${user_id}/reviews`);
+                document.getElementById('reviewsByUserResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('reviewsByUserResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        // Comment functions
+        async function createComment() {
+            try {
+                const review_id = document.getElementById('commentReviewId').value;
+                const comment_text = document.getElementById('commentText').value;
+                
+                // Get current user ID to associate with comment
+                const user = await makeRequest('GET', '/auth/me');
+                
+                const result = await makeRequest('POST', `/items/1/reviews/${review_id}/comments`, {
+                    review_id,
+                    user_id: user.id,
+                    comment_text
+                });
+                
+                document.getElementById('createCommentResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('createCommentResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        async function getCommentsByUser() {
+            try {
+                const user_id = document.getElementById('commentsByUserId').value;
+                const result = await makeRequest('GET', `/users/${user_id}/comments`);
+                document.getElementById('commentsByUserResult').innerHTML = 
+                    `<span class="success">Success!</span>\n${JSON.stringify(result, null, 2)}`;
+            } catch (error) {
+                document.getElementById('commentsByUserResult').innerHTML = 
+                    `<span class="error">Error:</span> ${error.message}`;
+            }
+        }
+        
+        // Initialize by getting all items to populate IDs
+        window.onload = function() {
+            getAllItems();
+            
+            // Try to get current user if token exists
+            if (authToken) {
+                getCurrentUser();
+            }
+        };
+    </script>
+</body>
+</html>
